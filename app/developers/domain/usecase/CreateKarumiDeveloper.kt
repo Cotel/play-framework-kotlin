@@ -7,20 +7,23 @@ import arrow.core.right
 import developers.domain.Developer
 import developers.domain.DeveloperError
 import developers.domain.DeveloperValidator
-import developers.storage.DeveloperDao
-import javax.inject.Inject
+import developers.storage.DeveloperStorageOperations
 
-class CreateKarumiDeveloper @Inject constructor(
-  private val developerDao: DeveloperDao
-) {
+interface CreateKarumiDeveloper {
 
-  operator fun invoke(developer: Developer): Either<DeveloperError, Developer> =
-    validKarumiDeveloper(developer)
-      .flatMap {
-        developerDao.create(it)
-          .toEither()
-          .mapLeft { DeveloperError.StorageError }
-      }
+  val storageOperations: DeveloperStorageOperations
+
+  fun Developer.createKarumiDeveloper(): Either<DeveloperError, Developer> {
+    val developer = this
+    return storageOperations.run {
+      validKarumiDeveloper(developer)
+        .flatMap { validatedDeveloper ->
+          validatedDeveloper.create()
+            .toEither()
+            .mapLeft { DeveloperError.StorageError }
+        }
+    }
+  }
 
   private fun validKarumiDeveloper(developer: Developer): Either<DeveloperError, Developer> =
     if (DeveloperValidator.isKarumiDeveloper(developer)) {

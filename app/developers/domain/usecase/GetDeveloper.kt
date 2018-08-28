@@ -4,17 +4,21 @@ import arrow.core.Either
 import arrow.core.left
 import developers.domain.Developer
 import developers.domain.DeveloperError
-import developers.storage.DeveloperDao
+import developers.storage.DeveloperStorageOperations
 import java.util.UUID
-import javax.inject.Inject
 
-class GetDeveloper @Inject constructor(
-  private val developerDao: DeveloperDao
-) {
+interface GetDeveloper {
 
-  operator fun invoke(developerId: UUID): Either<DeveloperError, Developer> =
-    developerDao.getById(developerId).fold(
-      ifFailure = { DeveloperError.StorageError.left() },
-      ifSuccess = { it.toEither { DeveloperError.NotFound } }
-    )
+  val storageOperations: DeveloperStorageOperations
+
+  fun UUID.getDeveloperWithId(): Either<DeveloperError, Developer> {
+    val id = this
+    return storageOperations.run {
+      id.getById().fold(
+        ifFailure = { DeveloperError.StorageError.left() },
+        ifSuccess = { it.toEither { DeveloperError.NotFound } }
+      )
+    }
+  }
+
 }

@@ -1,9 +1,11 @@
 package controllers
 
 import developers.domain.Developer
-import developers.storage.DeveloperDao
+import developers.storage.DeveloperEntity
+import developers.storage.DeveloperStorageOperations
 import given.GivenDeveloper
 import given.givenDeveloper
+import io.ebean.Finder
 import junit.framework.TestCase.assertEquals
 import org.junit.Test
 import play.mvc.Http.Status.BAD_REQUEST
@@ -20,7 +22,9 @@ import java.util.UUID
 
 class ApplicationTest : ApplicationWithDatabase(), ParseableJson, GivenDeveloper by givenDeveloper {
 
-  val dao = DeveloperDao()
+  val dao = object : DeveloperStorageOperations {
+    override val DAO: Finder<UUID, DeveloperEntity> = DeveloperEntity.DAO
+  }
 
   @Test
   fun `developer POST should create a developer if it's a karumi developer`() {
@@ -80,6 +84,6 @@ class ApplicationTest : ApplicationWithDatabase(), ParseableJson, GivenDeveloper
 
   private data class InvalidJson(val invalid: String = "")
 
-  private fun getById(id: UUID) = dao.getById(id).getOrNull()?.getOrNull()
-  private fun create(developer: Developer) = dao.create(developer).getOrNull()!!
+  private fun getById(id: UUID) = dao.run { id.getById().getOrNull()?.getOrNull() }
+  private fun create(developer: Developer) = dao.run { developer.create().getOrNull()!! }
 }
