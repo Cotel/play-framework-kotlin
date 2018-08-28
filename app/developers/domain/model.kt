@@ -8,7 +8,7 @@ data class Developer(
   val email: String?
 )
 
-sealed class DeveloperError {
+sealed class DeveloperError : Throwable() {
   object StorageError : DeveloperError()
   object NotFound : DeveloperError()
   object NotKarumier : DeveloperError()

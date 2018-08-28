@@ -1,5 +1,10 @@
 package controllers
 
+import arrow.effects.ForIO
+import arrow.effects.IO
+import arrow.effects.applicativeError
+import arrow.effects.fix
+import arrow.typeclasses.ApplicativeError
 import developers.NewDeveloperJson
 import developers.domain.Developer
 import developers.domain.DeveloperError
@@ -16,40 +21,42 @@ import java.util.concurrent.CompletionStage
 
 class Application : Controller(), ParseableJson {
 
-  private val developerStorageOperations = object : DeveloperStorageOperations {
+  private val developerStorageOperations = object : DeveloperStorageOperations<ForIO> {
     override val DAO: Finder<UUID, DeveloperEntity> = DeveloperEntity.DAO
+    override val AE: ApplicativeError<ForIO, Throwable> = IO.applicativeError()
   }
 
   fun index(): Result = ok("Your new application is ready.")
 
   fun createDeveloper(): CompletionStage<Result> {
-    val createKarumiDeveloperUseCase = object : CreateKarumiDeveloper {
-      override val storageOperations: DeveloperStorageOperations = developerStorageOperations
+    val createKarumiDeveloperUseCase = object : CreateKarumiDeveloper<ForIO> {
+      override val storageOperations: DeveloperStorageOperations<ForIO> = developerStorageOperations
     }
 
     return createKarumiDeveloperUseCase.run {
       readAsyncJsonBody<NewDeveloperJson> {
-        it.toDomain().createKarumiDeveloper()
+        it.toDomain().createKarumiDeveloper().fix().attempt().unsafeRunSync()
           .fold(
-            ifLeft = this@Application::processError,
-            ifRight = this@Application::created
+            ifLeft = { processError(it as DeveloperError) },
+            ifRight = this@Application::ok
           )
       }
     }
   }
 
   fun getDeveloper(developerId: String): CompletionStage<Result> {
-    val getKarumiDeveloper = object : GetDeveloper {
-      override val storageOperations: DeveloperStorageOperations = developerStorageOperations
+    val getKarumiDeveloper = object : GetDeveloper<ForIO> {
+      override val storageOperations: DeveloperStorageOperations<ForIO> = developerStorageOperations
     }
 
     return getKarumiDeveloper.run {
       async {
         val parsedId = UUID.fromString(developerId)
-        parsedId.getDeveloperWithId().fold(
-          ifLeft = this@Application::processError,
-          ifRight = this@Application::ok
-        )
+        parsedId.getDeveloperWithId().fix().attempt().unsafeRunSync()
+          .fold(
+            ifLeft = { processError(it as DeveloperError) },
+            ifRight = this@Application::ok
+          )
       }
     }
   }
