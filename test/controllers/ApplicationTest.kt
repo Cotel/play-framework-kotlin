@@ -1,5 +1,10 @@
 package controllers
 
+import arrow.effects.ForIO
+import arrow.effects.IO
+import arrow.effects.applicativeError
+import arrow.effects.fix
+import arrow.typeclasses.ApplicativeError
 import developers.domain.Developer
 import developers.storage.DeveloperEntity
 import developers.storage.DeveloperStorageOperations
@@ -22,7 +27,8 @@ import java.util.UUID
 
 class ApplicationTest : ApplicationWithDatabase(), ParseableJson, GivenDeveloper by givenDeveloper {
 
-  val dao = object : DeveloperStorageOperations {
+  val dao = object : DeveloperStorageOperations<ForIO> {
+    override val AE: ApplicativeError<ForIO, Throwable> = IO.applicativeError()
     override val DAO: Finder<UUID, DeveloperEntity> = DeveloperEntity.DAO
   }
 
@@ -84,6 +90,6 @@ class ApplicationTest : ApplicationWithDatabase(), ParseableJson, GivenDeveloper
 
   private data class InvalidJson(val invalid: String = "")
 
-  private fun getById(id: UUID) = dao.run { id.getById().getOrNull()?.getOrNull() }
-  private fun create(developer: Developer) = dao.run { developer.create().getOrNull()!! }
+  private fun getById(id: UUID) = dao.run { id.getById().fix().unsafeRunSync() }
+  private fun create(developer: Developer) = dao.run { developer.create().fix().unsafeRunSync() }
 }
