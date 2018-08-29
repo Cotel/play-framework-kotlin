@@ -34,12 +34,12 @@ class Application : Controller(), ParseableJson {
     }
 
     return createKarumiDeveloperUseCase.run {
-      readAsyncJsonBody<NewDeveloperJson> {
-        it.toDomain().createKarumiDeveloper().fix().attempt().unsafeRunSync()
+      readJsonBody<NewDeveloperJson> { newDeveloperJson ->
+        newDeveloperJson.toDomain().createKarumiDeveloper().fix().attempt().unsafeRunSync()
           .fold(
             ifLeft = { processError(it as DeveloperError) },
-            ifRight = this@Application::ok
-          )
+            ifRight = this@Application::created
+          ).let { it.completeFuture() }
       }
     }
   }
